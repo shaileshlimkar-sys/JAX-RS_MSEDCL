@@ -23,7 +23,7 @@ public class UrlService {
 		// TODO Auto-generated constructor stub
 	}
 
-	public String createShortUrl(String inputUrl) {
+	public String createShortUrl(String inputUrl, String choiceKey) {
 		String host = null;
 		long hostId = 0;
 		String createdHostKey = null; // to store Short URL of the host
@@ -71,11 +71,12 @@ public class UrlService {
 					}
 
 				} else {
-					System.out.println("HOST ALREADY PRESENT");
-					createdHostKey = rs.getString("host_key"); // "HOST NAME IS ALREADY REGISTERED THE HOST KEY is to be
-																// returned
+
+					createdHostKey = rs.getString("host_key"); // "HOST NAME IS ALREADY REGISTERED THE HOST KEY is to be returned
+					System.out.println("************* HOST ALREADY PRESENT " + createdHostKey);
+					
 					hostId = rs.getLong("hostID");
-					System.out.println("************* HOST ID is ALREADY PRESENT" + hostId);
+					System.out.println("************* HOST ID is ALREADY PRESENT " + hostId);
 				}
 
 			}
@@ -94,23 +95,29 @@ public class UrlService {
 				PreparedStatement checkPathStmt = conn.prepareStatement(CHECK_PATH_SQL);
 				PreparedStatement insertPathStmt = conn.prepareStatement(INSERT_PATH_SQL)) {
 
-			checkPathStmt.setString(1, host);
+			checkPathStmt.setString(1, inputUrl);
 
 			try (ResultSet rs = checkPathStmt.executeQuery()) {
 
 				if (!rs.next()) { /// check if the host is not present in master
 
 					insertPathStmt.setString(1, inputUrl);
-					String pathKey = KeyGenerator.generateKey(5); /// generate a random key
-					createdPAthKey = pathKey; /// final host short URL
+					if (choiceKey.isEmpty()) { /// if the choice for the short URL is not given
+						String pathKey = KeyGenerator.generateKey(5); /// generate a random key
+						createdPAthKey = pathKey; /// final host short URL
+					} else
+						createdPAthKey = choiceKey; ///if the choice for the short URL is given then use the choice
+
 					insertPathStmt.setString(2, createdPAthKey);
 					insertPathStmt.setLong(3, hostId);
 
 					insertPathStmt.executeUpdate();
+					System.out.println("************* PATH is NEWLY CREATED " + createdPAthKey);
 
 				} else {
 					createdPAthKey = rs.getString("path_key"); // "PATH IS ALREADY REGISTERED THE PATH is to be
 																// returned
+					System.out.println("************* PATH is ALREADY PRESENT " + createdPAthKey);
 				}
 
 			}

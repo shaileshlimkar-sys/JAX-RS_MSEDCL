@@ -16,10 +16,10 @@ import com.msedcl.jaxrs.urlshortner.service.UrlService;
 public class URLResorce {
 
 	UrlService urlService = new UrlService();
-	
+
 	@POST
 	@Path("/SHORTEN")
-	public String getShortUrl(@QueryParam("oldUrl") String oldUrl) {
+	public String getShortUrl(@QueryParam("choiceKey") String choiceKey, @QueryParam("oldUrl") String oldUrl) {
 
 		// Auto-prefix if missing scheme
 		String normalized = oldUrl;
@@ -27,16 +27,20 @@ public class URLResorce {
 			normalized = "http://" + normalized;
 		}
 
-		if (isValidWebUrl(normalized)) {
-			String shortUrl= urlService.createShortUrl(normalized);
-			
-			if(shortUrl== null)
-				return "ENTERED URL IS INVALID in createUrl Method";
-			else
-				return shortUrl;
-			
-		} else
-			return "ENTERED URL IS INVALID";
+		if (choiceKey.isEmpty() || (choiceKey.length() > 5 && choiceKey.length() < 13)) {
+			if (isValidWebUrl(normalized)) {
+				String shortUrl = urlService.createShortUrl(normalized, choiceKey);
+
+				if (shortUrl == null)
+					return "ENTERED URL IS INVALID in createUrl Method";
+				else
+					return shortUrl;
+
+			} else
+				return "ENTERED URL IS INVALID";
+		} else {
+			return "Length of Choice KEY must be between 6 and 12";
+		}
 
 	}
 
