@@ -20,6 +20,7 @@ public class MemberDAO {
             stmt.setInt(1, userId);
             
             try (ResultSet rs = stmt.executeQuery()) {
+            	
                 if (rs.next()) {
                     return rs.getString("memberName");
                 }

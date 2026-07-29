@@ -10,34 +10,44 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 
 import com.msedcl.jaxrs.urlshortner.dao.MemberDAO;
+import com.msedcl.jaxrs.urlshortner.service.UrlService;
 
 @Path("/")
 public class URLResorce {
 
+	UrlService urlService = new UrlService();
+	
 	@POST
 	@Path("/SHORTEN")
 	public String getShortUrl(@QueryParam("oldUrl") String oldUrl) {
-		if(isValidWebUrl(oldUrl)) {
-			try {
-				URI originalURL = new URI(oldUrl);
-				System.out.println("URL CREATED");
-				return originalURL.toString();
-			} catch (URISyntaxException e) {
-				// TODO Auto-generated catch block
-				return "WRONG URL";
-			} catch (Exception e) {
-				return e.getMessage();
-			}
+
+		// Auto-prefix if missing scheme
+		String normalized = oldUrl;
+		if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+			normalized = "http://" + normalized;
 		}
-		else return "ENTERED URL IS INVALID";
+
+		if (isValidWebUrl(normalized)) {
+			String shortUrl= urlService.createShortUrl(normalized);
+			
+			if(shortUrl== null)
+				return "ENTERED URL IS INVALID in createUrl Method";
+			else
+				return shortUrl;
+			
+		} else
+			return "ENTERED URL IS INVALID";
 
 	}
-	
+
+	/*
+	 * Sample method to test DB connectivity
+	 */
 	@GET
 	@Path("/getmember/{memberId}")
 	public String getMember(@PathParam("memberId") int id) {
-		MemberDAO member= new MemberDAO();
-		String memberName= member.getUserEmail(id);
+		MemberDAO member = new MemberDAO();
+		String memberName = member.getUserEmail(id);
 		return memberName;
 	}
 
@@ -50,14 +60,8 @@ public class URLResorce {
 			return false;
 		}
 
-		// Auto-prefix if missing scheme
-		String normalized = input;
-		if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
-			normalized = "https://" + normalized;
-		}
-
 		try {
-			URI uri = new URI(normalized);
+			URI uri = new URI(input);
 
 			// 1. Must have a valid HTTP or HTTPS scheme
 			String scheme = uri.getScheme();

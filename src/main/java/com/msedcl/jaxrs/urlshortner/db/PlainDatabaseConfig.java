@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class PlainDatabaseConfig {
 
-	private static final String URL = "jdbc:mysql://localhost:3306/springJDBC";
+	private static final String URL = "jdbc:mysql://localhost:3306/url_shortner";
 	private static final String USER = "root";
 	private static final String PASSWORD = "root123";
 
