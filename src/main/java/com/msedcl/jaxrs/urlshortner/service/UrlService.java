@@ -9,6 +9,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import com.msedcl.jaxrs.urlshortner.db.PlainDatabaseConfig;
+import com.msedcl.jaxrs.urlshortner.model.HomeUrl;
+import com.msedcl.jaxrs.urlshortner.model.URLEntity;
 import com.msedcl.jaxrs.urlshortner.util.KeyGenerator;
 
 public class UrlService {
@@ -23,20 +25,20 @@ public class UrlService {
 		// TODO Auto-generated constructor stub
 	}
 
-	public String createShortUrl(String inputUrl, String choiceKey) {
+	public URLEntity createShortUrl(String longUrl, String choiceKey) {
 		String host = null;
 		long hostId = 0;
 		String createdHostKey = null; // to store Short URL of the host
 		String createdPAthKey = null; // to store short URL for Path
 		try {
-			URI newURI = new URI(inputUrl);
+			URI newURI = new URI(longUrl);
 			host = newURI.getHost();
 
 		} catch (URISyntaxException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 
-			return "WRONG URL";
+			return null; //"WRONG URL";
 		}
 
 		// This opens a physical network link, executes, and auto-closes it
@@ -95,13 +97,13 @@ public class UrlService {
 				PreparedStatement checkPathStmt = conn.prepareStatement(CHECK_PATH_SQL);
 				PreparedStatement insertPathStmt = conn.prepareStatement(INSERT_PATH_SQL)) {
 
-			checkPathStmt.setString(1, inputUrl);
+			checkPathStmt.setString(1, longUrl);
 
 			try (ResultSet rs = checkPathStmt.executeQuery()) {
 
 				if (!rs.next()) { /// check if the host is not present in master
 
-					insertPathStmt.setString(1, inputUrl);
+					insertPathStmt.setString(1, longUrl);
 					if (choiceKey.isEmpty()) { /// if the choice for the short URL is not given
 						String pathKey = KeyGenerator.generateKey(5); /// generate a random key
 						createdPAthKey = pathKey; /// final host short URL
@@ -125,8 +127,11 @@ public class UrlService {
 			e.printStackTrace();
 
 		}
-
-		return createdHostKey + "/" + createdPAthKey;
+		
+		URLEntity urlEntity = new URLEntity(longUrl,HomeUrl.HOME_URL+createdPAthKey);
+		//return createdHostKey + "/" + createdPAthKey;
+		return urlEntity;
+				
 
 	}
 }

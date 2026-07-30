@@ -3,13 +3,19 @@ package com.msedcl.jaxrs.urlshortner.resource;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriInfo;
 
-import com.msedcl.jaxrs.urlshortner.dao.MemberDAO;
+import com.msedcl.jaxrs.urlshortner.exception.InvalidShortKeyException;
+import com.msedcl.jaxrs.urlshortner.exception.InvalidUrlException;
+import com.msedcl.jaxrs.urlshortner.model.URLEntity;
 import com.msedcl.jaxrs.urlshortner.service.UrlService;
 
 @Path("/")
@@ -19,41 +25,36 @@ public class URLResorce {
 
 	@POST
 	@Path("/SHORTEN")
-	public String getShortUrl(@QueryParam("choiceKey") String choiceKey, @QueryParam("oldUrl") String oldUrl) {
-
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getShortUrl(@Context UriInfo uriInfo, @QueryParam("choiceKey") String choiceKey, @QueryParam("longUrl") String longUrl) {
+		
+		System.out.println(uriInfo.getBaseUri());
 		// Auto-prefix if missing scheme
-		String normalized = oldUrl;
+		String normalized = longUrl;
 		if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
 			normalized = "http://" + normalized;
 		}
 
 		if (choiceKey.isEmpty() || (choiceKey.length() > 5 && choiceKey.length() < 13)) {
 			if (isValidWebUrl(normalized)) {
-				String shortUrl = urlService.createShortUrl(normalized, choiceKey);
-
-				if (shortUrl == null)
-					return "ENTERED URL IS INVALID in createUrl Method";
+				//String shortUrl = urlService.createShortUrl(normalized, choiceKey);
+				URLEntity urlEntity = urlService.createShortUrl(normalized, choiceKey);
+				if (urlEntity == null)
+					return Response.status(Status.BAD_REQUEST)
+							       .entity("ENTERED URL IS INVALID").build(); //"ENTERED URL IS INVALID in createUrl Method";
 				else
-					return shortUrl;
+					return Response.status(Status.OK)
+							        .entity(urlEntity).build();
 
 			} else
-				return "ENTERED URL IS INVALID";
+				throw new InvalidUrlException("ENTERED URL IS INVALID"); //"ENTERED URL IS INVALID";
 		} else {
-			return "Length of Choice KEY must be between 6 and 12";
+			throw new InvalidShortKeyException("SHORT KEY PROVIDED MUST BE BETWEEN 6 TO 12 CHARACTER LONG"); //"Length of Choice KEY must be between 6 and 12";
 		}
 
 	}
 
-	/*
-	 * Sample method to test DB connectivity
-	 */
-	@GET
-	@Path("/getmember/{memberId}")
-	public String getMember(@PathParam("memberId") int id) {
-		MemberDAO member = new MemberDAO();
-		String memberName = member.getUserEmail(id);
-		return memberName;
-	}
+
 
 	/*
 	 * METHOD TO CHECK IF THE URL IS A VALID WEB URL
