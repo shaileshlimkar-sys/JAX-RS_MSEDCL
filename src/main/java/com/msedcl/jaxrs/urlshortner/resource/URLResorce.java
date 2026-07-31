@@ -3,8 +3,10 @@ package com.msedcl.jaxrs.urlshortner.resource;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
@@ -15,6 +17,7 @@ import javax.ws.rs.core.UriInfo;
 
 import com.msedcl.jaxrs.urlshortner.exception.InvalidShortKeyException;
 import com.msedcl.jaxrs.urlshortner.exception.InvalidUrlException;
+import com.msedcl.jaxrs.urlshortner.model.ErrorMessage;
 import com.msedcl.jaxrs.urlshortner.model.URLEntity;
 import com.msedcl.jaxrs.urlshortner.service.UrlService;
 
@@ -26,9 +29,12 @@ public class URLResorce {
 	@POST
 	@Path("/SHORTEN")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getShortUrl(@Context UriInfo uriInfo, @QueryParam("choiceKey") String choiceKey, @QueryParam("longUrl") String longUrl) {
-		
-		System.out.println(uriInfo.getBaseUri());
+	public Response getShortUrl(@QueryParam("choiceKey") String choiceKey, @QueryParam("longUrl") String longUrl) {
+
+		if (choiceKey == null || longUrl == null)
+			return Response.status(Status.BAD_REQUEST)
+					.entity(new ErrorMessage("BOTH choiceKey AND longUrl ARGUMENS ARE MANDATORY", 400)).build();
+
 		// Auto-prefix if missing scheme
 		String normalized = longUrl;
 		if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
@@ -37,24 +43,69 @@ public class URLResorce {
 
 		if (choiceKey.isEmpty() || (choiceKey.length() > 5 && choiceKey.length() < 13)) {
 			if (isValidWebUrl(normalized)) {
-				//String shortUrl = urlService.createShortUrl(normalized, choiceKey);
+				// String shortUrl = urlService.createShortUrl(normalized, choiceKey);
 				URLEntity urlEntity = urlService.createShortUrl(normalized, choiceKey);
 				if (urlEntity == null)
-					return Response.status(Status.BAD_REQUEST)
-							       .entity("ENTERED URL IS INVALID").build(); //"ENTERED URL IS INVALID in createUrl Method";
+					return Response.status(Status.BAD_REQUEST).entity("ENTERED URL IS INVALID").build();
 				else
-					return Response.status(Status.OK)
-							        .entity(urlEntity).build();
+					return Response.status(Status.OK).entity(urlEntity).build();
 
 			} else
-				throw new InvalidUrlException("ENTERED URL IS INVALID"); //"ENTERED URL IS INVALID";
+				throw new InvalidUrlException("ENTERED URL IS INVALID"); // "ENTERED URL IS INVALID";
 		} else {
-			throw new InvalidShortKeyException("SHORT KEY PROVIDED MUST BE BETWEEN 6 TO 12 CHARACTER LONG"); //"Length of Choice KEY must be between 6 and 12";
+			throw new InvalidShortKeyException("SHORT KEY PROVIDED MUST BE BETWEEN 6 TO 12 CHARACTER LONG");
 		}
 
 	}
 
+	@GET
+	@Path("/{shortUrl}")
+	public Response redirect(@PathParam("shortUrl") String shotrUrl) {
+		if (shotrUrl == null)
+			return Response.status(Status.BAD_REQUEST)
+					.entity(new ErrorMessage("shotrUrl ARGUMENT IS MISSING IN THE REQUEST", 400)).build();
 
+		ErrorMessage errorMessage;
+		System.out.println("GET REQUESTED " + shotrUrl);
+		String longUrl = urlService.getLongUrl(shotrUrl);
+		switch (longUrl) {
+		case "INTERNAL SERVER ERROR":
+			errorMessage = new ErrorMessage("INTERNAL SERVER ERROR", 500);
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errorMessage).build();
+		case "ENTERED SHORT URL IS NOT FOUND":
+			errorMessage = new ErrorMessage("ENTERED SHORT URL IS NOT FOUND", 404);
+			return Response.status(Status.NOT_FOUND).entity(errorMessage).build();
+
+		default:
+			URI targetUri = URI.create(longUrl);
+			return Response.status(Response.Status.FOUND).location(targetUri).build();
+		}
+
+	}
+
+	@GET
+	@Path("/Url/{shortUrl}")
+	public Response getUrlInfo(@Context UriInfo uriInfo, @PathParam("shortUrl") String shotrUrl) {
+		if (shotrUrl == null)
+			return Response.status(Status.BAD_REQUEST)
+					.entity(new ErrorMessage("shotrUrl ARGUMENT IS MISSING IN THE REQUEST", 400)).build();
+		
+		ErrorMessage errorMessage;
+		String longUrl = urlService.getLongUrl(shotrUrl);
+		URLEntity urlEntity = new URLEntity(longUrl, uriInfo.getBaseUriBuilder().path(shotrUrl).toString());
+		switch (longUrl) {
+		case "INTERNAL SERVER ERROR":
+			errorMessage = new ErrorMessage("INTERNAL SERVER ERROR", 500);
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errorMessage).build();
+		case "ENTERED SHORT URL IS NOT FOUND":
+			errorMessage = new ErrorMessage("ENTERED SHORT URL IS NOT FOUND", 404);
+			return Response.status(Status.NOT_FOUND).entity(errorMessage).build();
+
+		default:
+			return Response.status(Status.FOUND).entity(urlEntity).build();
+		}
+
+	}
 
 	/*
 	 * METHOD TO CHECK IF THE URL IS A VALID WEB URL

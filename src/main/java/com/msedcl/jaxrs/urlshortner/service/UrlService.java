@@ -17,9 +17,12 @@ public class UrlService {
 
 	private final String CHECK_HOST_SQL = "select * from host WHERE host_url = ?";
 	private String CHECK_PATH_SQL = "select * from path WHERE path_url = ?";
+	private String CHECK_PATH_AND_KEY_SQL = "select * from path WHERE path_url = ? AND path_key = ?";
 
 	private final String INSERT_HOST_SQL = "insert into host (host_url, host_key) values (?, ?)";
 	private final String INSERT_PATH_SQL = "insert into path (path_url, path_key, hostId) values (?, ?, ?)";
+
+	private final String GET_LONG_URL = "select path_url from path where path_key = ?";
 
 	public UrlService() {
 		// TODO Auto-generated constructor stub
@@ -38,7 +41,7 @@ public class UrlService {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 
-			return null; //"WRONG URL";
+			return null; // "WRONG URL";
 		}
 
 		// This opens a physical network link, executes, and auto-closes it
@@ -74,9 +77,10 @@ public class UrlService {
 
 				} else {
 
-					createdHostKey = rs.getString("host_key"); // "HOST NAME IS ALREADY REGISTERED THE HOST KEY is to be returned
+					createdHostKey = rs.getString("host_key"); // "HOST NAME IS ALREADY REGISTERED THE HOST KEY is to be
+																// returned
 					System.out.println("************* HOST ALREADY PRESENT " + createdHostKey);
-					
+
 					hostId = rs.getLong("hostID");
 					System.out.println("************* HOST ID is ALREADY PRESENT " + hostId);
 				}
@@ -91,13 +95,20 @@ public class UrlService {
 
 		// This opens a physical network link, executes, and auto-closes it
 		// "try-with-resources" BLOCK
+		String CONDITIONAL_PATH_CHECK;
+		if (choiceKey.isEmpty()) // if no choice key is not given check only path
+			CONDITIONAL_PATH_CHECK = CHECK_PATH_SQL; // if choice key is given, check for path and key combination
+		else
+			CONDITIONAL_PATH_CHECK = CHECK_PATH_AND_KEY_SQL;
 
 		System.out.println("************* HOST ID is " + hostId);
 		try (Connection conn = PlainDatabaseConfig.createNewConnection();
-				PreparedStatement checkPathStmt = conn.prepareStatement(CHECK_PATH_SQL);
+				PreparedStatement checkPathStmt = conn.prepareStatement(CONDITIONAL_PATH_CHECK);
 				PreparedStatement insertPathStmt = conn.prepareStatement(INSERT_PATH_SQL)) {
 
 			checkPathStmt.setString(1, longUrl);
+			if (!choiceKey.isEmpty())
+				checkPathStmt.setString(2, choiceKey);
 
 			try (ResultSet rs = checkPathStmt.executeQuery()) {
 
@@ -108,7 +119,7 @@ public class UrlService {
 						String pathKey = KeyGenerator.generateKey(5); /// generate a random key
 						createdPAthKey = pathKey; /// final host short URL
 					} else
-						createdPAthKey = choiceKey; ///if the choice for the short URL is given then use the choice
+						createdPAthKey = choiceKey; /// if the choice for the short URL is given then use the choice
 
 					insertPathStmt.setString(2, createdPAthKey);
 					insertPathStmt.setLong(3, hostId);
@@ -127,11 +138,41 @@ public class UrlService {
 			e.printStackTrace();
 
 		}
-		
-		URLEntity urlEntity = new URLEntity(longUrl,HomeUrl.HOME_URL+createdPAthKey);
-		//return createdHostKey + "/" + createdPAthKey;
-		return urlEntity;
-				
 
+		URLEntity urlEntity = new URLEntity(longUrl, HomeUrl.HOME_URL + createdPAthKey);
+		// return createdHostKey + "/" + createdPAthKey;
+		return urlEntity;
+
+	}
+
+	/*
+	 * METHOD to get LongURL for the short Key
+	 */
+	public String getLongUrl(String ShortUrl) {
+		String longUrl;
+		try (Connection conn = PlainDatabaseConfig.createNewConnection();
+				PreparedStatement getPathStmt = conn.prepareStatement(GET_LONG_URL)) {
+			getPathStmt.setString(1, ShortUrl);
+			try {
+				ResultSet rs = getPathStmt.executeQuery();
+				if (rs.next()) {
+					longUrl = rs.getString("path_url");
+					System.out.println(longUrl);
+
+				} else {
+					longUrl = "ENTERED SHORT URL IS NOT FOUND";
+					System.out.println(longUrl);
+				}
+			} catch (SQLException e) {
+				e.printStackTrace();
+				longUrl = "INTERNAL SERVER ERROR";
+			}
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+			longUrl = "INTERNAL SERVER ERROR";
+
+		}
+		return longUrl;
 	}
 }
