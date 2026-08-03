@@ -26,6 +26,10 @@ public class URLResorce {
 
 	UrlService urlService = new UrlService();
 
+	/*
+	 * METHOD TO CREATE A SHORT URL FOR THE LONG URL SPECIFIED
+	 * ALSO ACCEPTS A CHOICE FOR THE SHORT KEY.
+	 */
 	@POST
 	@Path("/SHORTEN")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -62,6 +66,9 @@ public class URLResorce {
 
 	}
 
+	/*
+	 * METHOD TO REDIRECT TO THE LONG URL BASED ON THE SHORT URL
+	 */
 	@GET
 	@Path("/{shortUrl}")
 	public Response redirect(@PathParam("shortUrl") String shotrUrl) {

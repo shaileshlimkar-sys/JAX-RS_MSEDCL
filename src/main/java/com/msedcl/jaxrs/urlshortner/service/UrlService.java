@@ -134,9 +134,15 @@ public class UrlService {
 
 					insertPathStmt.setString(2, createdPAthKey);
 					insertPathStmt.setLong(3, hostId);
-
+					
+					try {
 					insertPathStmt.executeUpdate();
 					System.out.println("************* PATH is NEWLY CREATED " + createdPAthKey);
+					}
+					catch(Exception e) {
+						throw new InvalidShortKeyException("SHORT KEY ISSUE : " + e.getMessage());
+					}
+					
 
 				} else {
 					createdPAthKey = rs.getString("path_key"); // "PATH IS ALREADY REGISTERED THE PATH is to be
