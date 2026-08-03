@@ -1,5 +1,7 @@
 package com.msedcl.jaxrs.urlshortner.service;
 
+import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -9,18 +11,24 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import com.msedcl.jaxrs.urlshortner.db.PlainDatabaseConfig;
-import com.msedcl.jaxrs.urlshortner.model.HomeUrl;
+import com.msedcl.jaxrs.urlshortner.exception.GenericException;
+import com.msedcl.jaxrs.urlshortner.exception.InvalidShortKeyException;
 import com.msedcl.jaxrs.urlshortner.model.URLEntity;
 import com.msedcl.jaxrs.urlshortner.util.KeyGenerator;
+import com.msedcl.jaxrs.urlshortner.util.QRUtil;
+
+import io.nayuki.qrcodegen.QrCode;
 
 public class UrlService {
 
 	private final String CHECK_HOST_SQL = "select * from host WHERE host_url = ?";
 	private String CHECK_PATH_SQL = "select * from path WHERE path_url = ?";
 	private String CHECK_PATH_AND_KEY_SQL = "select * from path WHERE path_url = ? AND path_key = ?";
+	private String CHECK_QR_SQL = "select * from qr_codes WHERE path_url= ?";
 
 	private final String INSERT_HOST_SQL = "insert into host (host_url, host_key) values (?, ?)";
 	private final String INSERT_PATH_SQL = "insert into path (path_url, path_key, hostId) values (?, ?, ?)";
+	private final String INSERT_QR_SQL = "insert into qr_codes (path_url , image_data) values(?, ?)";
 
 	private final String GET_LONG_URL = "select path_url from path where path_key = ?";
 
@@ -28,6 +36,9 @@ public class UrlService {
 		// TODO Auto-generated constructor stub
 	}
 
+	/*
+	 * Method to insert Short Key
+	 */
 	public URLEntity createShortUrl(String longUrl, String choiceKey) {
 		String host = null;
 		long hostId = 0;
@@ -136,10 +147,10 @@ public class UrlService {
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
-
+			throw new GenericException("INTERNAL SERVER ERROR : "+ e.getMessage());
 		}
 
-		URLEntity urlEntity = new URLEntity(longUrl, HomeUrl.HOME_URL + createdPAthKey);
+		URLEntity urlEntity = new URLEntity(longUrl, createdPAthKey);
 		// return createdHostKey + "/" + createdPAthKey;
 		return urlEntity;
 
@@ -148,11 +159,11 @@ public class UrlService {
 	/*
 	 * METHOD to get LongURL for the short Key
 	 */
-	public String getLongUrl(String ShortUrl) {
+	public String getLongUrl(String shortUrl) {
 		String longUrl;
 		try (Connection conn = PlainDatabaseConfig.createNewConnection();
 				PreparedStatement getPathStmt = conn.prepareStatement(GET_LONG_URL)) {
-			getPathStmt.setString(1, ShortUrl);
+			getPathStmt.setString(1, shortUrl);
 			try {
 				ResultSet rs = getPathStmt.executeQuery();
 				if (rs.next()) {
@@ -160,19 +171,85 @@ public class UrlService {
 					System.out.println(longUrl);
 
 				} else {
-					longUrl = "ENTERED SHORT URL IS NOT FOUND";
-					System.out.println(longUrl);
+					//longUrl = "ENTERED SHORT URL IS NOT FOUND";
+					//System.out.println(longUrl);
+					throw new InvalidShortKeyException("ENTERED SHORT URL IS NOT FOUND : "+ shortUrl);
 				}
 			} catch (SQLException e) {
 				e.printStackTrace();
-				longUrl = "INTERNAL SERVER ERROR";
+				throw new GenericException("INTERNAL SERVER ERROR : "+ e.getMessage());
 			}
 
 		} catch (SQLException e) {
 			e.printStackTrace();
-			longUrl = "INTERNAL SERVER ERROR";
+			throw new GenericException("INTERNAL SERVER ERROR : "+ e.getMessage());
 
 		}
 		return longUrl;
 	}
+	
+	public byte[] generateQR(String shortUrl ) {
+		
+		String longUrl = null;
+		try (Connection conn = PlainDatabaseConfig.createNewConnection();
+				PreparedStatement getPathStmt = conn.prepareStatement(GET_LONG_URL)) { //////////// check if short key is present in master
+			getPathStmt.setString(1, shortUrl);
+			try {
+				ResultSet rs = getPathStmt.executeQuery();
+				if (rs.next()) {
+					longUrl = rs.getString("path_url");
+					System.out.println(longUrl);
+
+				} else {
+					throw new InvalidShortKeyException("ENTERED SHORT KEY IS NOT FOUND");
+				}
+			} catch (SQLException e) {
+				e.printStackTrace();
+				throw new GenericException("INTERNAL SERVER ERROR : "+ e.getMessage());
+			}
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new GenericException("INTERNAL SERVER ERROR : "+ e.getMessage());
+
+		}
+		
+		byte [] qrBytes = null;
+		try (Connection conn = PlainDatabaseConfig.createNewConnection();
+				PreparedStatement getPathStmt = conn.prepareStatement(CHECK_QR_SQL); /////////////// check if QR code is already created
+				PreparedStatement insertQrStmt = conn.prepareStatement(INSERT_QR_SQL)) {  ///////////insert into Qr codes
+			getPathStmt.setString(1, longUrl);
+			try {
+				ResultSet rs = getPathStmt.executeQuery();
+				if (rs.next()) {
+					longUrl = rs.getString("path_url");
+					qrBytes = rs.getBytes("image_data");
+					
+
+				} else {
+					String url = longUrl;
+			        QrCode qr = QrCode.encodeText(url, QrCode.Ecc.MEDIUM);
+			        BufferedImage img = QRUtil.toImage(qr, 4, 4); // (Using the toImage method from QRUtil class)
+			        qrBytes = QRUtil.convertImageToBytes(img);
+			        
+			        insertQrStmt.setString(1, longUrl);
+			        insertQrStmt.setBytes(2, qrBytes);
+			        
+			        insertQrStmt.executeUpdate();	        
+			        
+				}
+			} catch (SQLException  | IOException e) {
+				e.printStackTrace();
+				throw new GenericException("INTERNAL SERVER ERROR : "+ e.getMessage());
+			}
+			
+		}catch (SQLException e) {
+			e.printStackTrace();
+			throw new GenericException("INTERNAL SERVER ERROR : "+ e.getMessage());
+
+		}
+		
+		return qrBytes;		
+	}
 }
+

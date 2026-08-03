@@ -29,7 +29,8 @@ public class URLResorce {
 	@POST
 	@Path("/SHORTEN")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getShortUrl(@QueryParam("choiceKey") String choiceKey, @QueryParam("longUrl") String longUrl) {
+	public Response getShortUrl(@Context UriInfo uriInfo, @QueryParam("choiceKey") String choiceKey,
+			@QueryParam("longUrl") String longUrl) {
 
 		if (choiceKey == null || longUrl == null)
 			return Response.status(Status.BAD_REQUEST)
@@ -47,8 +48,11 @@ public class URLResorce {
 				URLEntity urlEntity = urlService.createShortUrl(normalized, choiceKey);
 				if (urlEntity == null)
 					return Response.status(Status.BAD_REQUEST).entity("ENTERED URL IS INVALID").build();
-				else
+				else {
+					String createdKey = urlEntity.getShortUrl();
+					urlEntity.setShortUrl(uriInfo.getBaseUriBuilder().path(createdKey).toString());
 					return Response.status(Status.OK).entity(urlEntity).build();
+				}
 
 			} else
 				throw new InvalidUrlException("ENTERED URL IS INVALID"); // "ENTERED URL IS INVALID";
@@ -65,46 +69,45 @@ public class URLResorce {
 			return Response.status(Status.BAD_REQUEST)
 					.entity(new ErrorMessage("shotrUrl ARGUMENT IS MISSING IN THE REQUEST", 400)).build();
 
-		ErrorMessage errorMessage;
 		System.out.println("GET REQUESTED " + shotrUrl);
 		String longUrl = urlService.getLongUrl(shotrUrl);
-		switch (longUrl) {
-		case "INTERNAL SERVER ERROR":
-			errorMessage = new ErrorMessage("INTERNAL SERVER ERROR", 500);
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errorMessage).build();
-		case "ENTERED SHORT URL IS NOT FOUND":
-			errorMessage = new ErrorMessage("ENTERED SHORT URL IS NOT FOUND", 404);
-			return Response.status(Status.NOT_FOUND).entity(errorMessage).build();
 
-		default:
-			URI targetUri = URI.create(longUrl);
-			return Response.status(Response.Status.FOUND).location(targetUri).build();
-		}
+		URI targetUri = URI.create(longUrl);
+		return Response.status(Status.FOUND).location(targetUri).build();  //Redirection
 
 	}
 
+	/*
+	 * METHOD TO GET INIFORMATION ABOUT A SHORT KEY Path Parameter is the SHORT KEY
+	 * for which QR code is to be generated
+	 */
 	@GET
 	@Path("/Url/{shortUrl}")
 	public Response getUrlInfo(@Context UriInfo uriInfo, @PathParam("shortUrl") String shotrUrl) {
 		if (shotrUrl == null)
 			return Response.status(Status.BAD_REQUEST)
 					.entity(new ErrorMessage("shotrUrl ARGUMENT IS MISSING IN THE REQUEST", 400)).build();
-		
-		ErrorMessage errorMessage;
+
 		String longUrl = urlService.getLongUrl(shotrUrl);
 		URLEntity urlEntity = new URLEntity(longUrl, uriInfo.getBaseUriBuilder().path(shotrUrl).toString());
-		switch (longUrl) {
-		case "INTERNAL SERVER ERROR":
-			errorMessage = new ErrorMessage("INTERNAL SERVER ERROR", 500);
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(errorMessage).build();
-		case "ENTERED SHORT URL IS NOT FOUND":
-			errorMessage = new ErrorMessage("ENTERED SHORT URL IS NOT FOUND", 404);
-			return Response.status(Status.NOT_FOUND).entity(errorMessage).build();
 
-		default:
-			return Response.status(Status.FOUND).entity(urlEntity).build();
-		}
+		return Response.status(Status.FOUND).entity(urlEntity).build();
 
+	}
+
+	/*
+	 * METHOD TO GENERATE QR CODE Path Parameter is the SHORT KEY for which QR code
+	 * is to be generated
+	 */
+	@POST
+	@Path("/generateQR/{shortUrl}")
+	public Response generateQR(@PathParam("shortUrl") String shotrUrl) {
+
+		byte[] QRCodeBytes = urlService.generateQR(shotrUrl);
+		if (QRCodeBytes != null)
+			return Response.status(Status.CREATED).entity(QRCodeBytes).build();
+		else
+			return Response.status(Status.BAD_REQUEST).entity("BAD REQUEST ").build();
 	}
 
 	/*
