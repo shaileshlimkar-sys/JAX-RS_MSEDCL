@@ -31,6 +31,10 @@ public class UrlService {
 	private final String INSERT_QR_SQL = "insert into qr_codes (path_url , image_data) values(?, ?)";
 
 	private final String GET_LONG_URL = "select path_url from path where path_key = ?";
+	
+    // HK2 automatically injects the Hikari DataSource here
+//    @Inject
+//    private DataSource dataSource;
 
 	public UrlService() {
 		// TODO Auto-generated constructor stub
@@ -40,6 +44,7 @@ public class UrlService {
 	 * Method to insert Short Key
 	 */
 	public URLEntity createShortUrl(String longUrl, String choiceKey) {
+		System.out.println("CREATE URL METHOD CALLED");
 		String host = null;
 		long hostId = 0;
 		String createdHostKey = null; // to store Short URL of the host
@@ -54,14 +59,14 @@ public class UrlService {
 
 			return null; // "WRONG URL";
 		}
-
+		System.out.println("OPENING CONNECTION TO THE DATABASE");
 		// This opens a physical network link, executes, and auto-closes it
 		// "try-with-resources" BLOCK
 		try (Connection conn = PlainDatabaseConfig.createNewConnection();
 				PreparedStatement checkHostStmt = conn.prepareStatement(CHECK_HOST_SQL);
 				PreparedStatement insertHostStmt = conn.prepareStatement(INSERT_HOST_SQL,
 						Statement.RETURN_GENERATED_KEYS)) {
-
+			System.out.println("CONNECTION TO THE DATABASE ESTABLISHED");
 			checkHostStmt.setString(1, host);
 
 			try (ResultSet rs = checkHostStmt.executeQuery()) {
@@ -98,7 +103,8 @@ public class UrlService {
 
 			}
 		} catch (SQLException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
+			throw new RuntimeException("SQL execution failed: " + e.getMessage(), e);
 
 		}
 		///////////////////// HOST URL PART IS OVER
